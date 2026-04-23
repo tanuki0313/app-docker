@@ -3,19 +3,29 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from sqlalchemy import create_engine, text
+import os
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://aiworklab.jp", "https://d59awmwd9zst4.cloudfront.net"],
+    allow_origins=["https://example.com", "https://example.cloudfront.net"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # DB接続
-DATABASE_URL = f"mysql+pymysql://{secret['username']}:{secret['password']}@my-rds.ct0q0ugm42z3.ap-northeast-1.rds.amazonaws.com:3306/appdb"
+DB_USER = os.getenv("DB_USER", "your_username")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "your_password")
+DB_HOST = os.getenv("DB_HOST", "your-rds-endpoint")
+DB_NAME = os.getenv("DB_NAME", "appdb")
+
+DATABASE_URL = (
+    f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}"
+    f"@{DB_HOST}:3306/{DB_NAME}"
+)
+
 engine = create_engine(DATABASE_URL)
 
 # =========================

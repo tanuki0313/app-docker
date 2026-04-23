@@ -24,7 +24,7 @@ engine = create_engine(DATABASE_URL)
 @app.get("/", response_class=HTMLResponse)
 def index():
     return """
-    <h1>ブログアクセス数一覧</h1>
+    <h1>★★ブログアクセス数一覧★★</h1>
     <h2>今日のアクセス数</h2>
     <div id="daily">0</div>
     <h2>総合アクセス数</h2>

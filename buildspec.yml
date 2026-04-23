@@ -8,7 +8,8 @@ phases:
   build:
     commands:
       - IMAGE_TAG=$(date +%s)
-      - od -c -tx1 main.py | head -20
+      - sed -i 's/\r$//' main.py
+      - od -c -tx1 main.py | head -5
       - docker build --no-cache -t access-app:$IMAGE_TAG .
       - docker tag access-app:$IMAGE_TAG 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG
 

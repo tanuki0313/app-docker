@@ -15,7 +15,7 @@ app.add_middleware(
 )
 
 # DB接続
-DATABASE_URL = "mysql+pymysql://admin:{Gql9W0b2_MX.}Du@my-rds.ct0q0ugm42z3.ap-northeast-1.rds.amazonaws.com:3306/appdb"
+DATABASE_URL = f"mysql+pymysql://{secret['username']}:{secret['password']}@my-rds.ct0q0ugm42z3.ap-northeast-1.rds.amazonaws.com:3306/appdb"
 engine = create_engine(DATABASE_URL)
 
 # =========================

@@ -3,21 +3,20 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com
+      - aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin <AWSアカウントID>.dkr.ecr.ap-northeast-1.amazonaws.com
 
   build:
     commands:
       - IMAGE_TAG=$(date +%s)
       - pwd
       - ls -la
-      - python3 -c 'from pathlib import Path; p=Path("main.py"); print(repr(p.read_text(encoding="utf-8", errors="replace")[:120]))'
       - docker build --no-cache -t access-app:$IMAGE_TAG .
-      - docker tag access-app:$IMAGE_TAG 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG
+      - docker tag access-app:$IMAGE_TAG <AWSアカウントID>.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG
 
   post_build:
     commands:
-      - docker push 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG
-      - printf '[{"name":"app","imageUri":"%s"}]' 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG > imagedefinitions.json
+      - docker push <AWSアカウントID>.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG
+      - printf '[{"name":"app","imageUri":"%s"}]' <AWSアカウントID>.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG > imagedefinitions.json
 
 artifacts:
   files:

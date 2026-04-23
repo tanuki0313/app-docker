@@ -1,8 +1,8 @@
-    from fastapi import FastAPI
-    from fastapi.responses import HTMLResponse
-    from fastapi.middleware.cors import CORSMiddleware
-    from datetime import datetime
-    from sqlalchemy import create_engine, text
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
+from sqlalchemy import create_engine, text
 
 app = FastAPI()
 

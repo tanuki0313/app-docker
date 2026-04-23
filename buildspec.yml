@@ -4,14 +4,17 @@ phases:
   pre_build:
     commands:
       - aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com
+
   build:
     commands:
-      - docker build --no-cache -t access-app .
-      - docker tag access-app:latest 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:latest
+      - IMAGE_TAG=$(date +%s)
+      - docker build --no-cache -t access-app:$IMAGE_TAG .
+      - docker tag access-app:$IMAGE_TAG 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG
+
   post_build:
     commands:
-      - docker push 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:latest
-      - printf '[{"name":"app","imageUri":"%s"}]' 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:latest > imagedefinitions.json
+      - docker push 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG
+      - printf '[{"name":"app","imageUri":"%s"}]' 566022582384.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG > imagedefinitions.json
 
 artifacts:
   files:

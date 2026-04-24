@@ -36,11 +36,12 @@ def index():
     return """
     <h1>★★ブログアクセス数一覧★★</h1>
     <h2>今日のアクセス数</h2>
-    <div id="daily">0</div>
+    
     <h2>総合アクセス数</h2>
     <div id="total">0</div>
     <h2>人気記事ランキング</h2>
     <ul id="top"></ul>
+    # 以下スクリプトはページが読み込まれた時に自動で動く
     <script>
     fetch("/stats/total").then(res => res.json()).then(data => {
         document.getElementById("total").innerText = data.total;

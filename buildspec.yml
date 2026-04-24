@@ -3,21 +3,25 @@ version: 0.2
 phases:
   pre_build:
     commands:
+      # ECRにdocker loginする（AWSの認証情報を使ってECRにログイン）
       - aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin <AWSアカウントID>.dkr.ecr.ap-northeast-1.amazonaws.com
 
   build:
     commands:
       - IMAGE_TAG=$(date +%s)
-      - pwd
-      - ls -la
+      # Dockerイメージをビルド（キャッシュなし）
       - docker build --no-cache -t access-app:$IMAGE_TAG .
+      # ECRにpushするためにタグを付け直す
       - docker tag access-app:$IMAGE_TAG <AWSアカウントID>.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG
 
   post_build:
     commands:
+      # ECRにイメージをpush
       - docker push <AWSアカウントID>.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG
+      # ECSデプロイ用のJSONファイルを作成（どのイメージを使うか指定）
       - printf '[{"name":"app","imageUri":"%s"}]' <AWSアカウントID>.dkr.ecr.ap-northeast-1.amazonaws.com/access-app:$IMAGE_TAG > imagedefinitions.json
 
 artifacts:
   files:
+    # CodePipelineに渡すファイル（ECSデプロイ時、CodePipelineはこのファイルを参照してdeployする）
     - imagedefinitions.json

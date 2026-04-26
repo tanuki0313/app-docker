@@ -87,7 +87,6 @@ Amazon RDS(MySQL)へ保存し、管理画面で以下の情報を確認できま
 - **Python**
 - **FastAPI**
 - **SQLAlchemy**
-- **PyMySQL**
 - **Docker**
 
 ---

@@ -212,14 +212,14 @@ FastAPIのHTMLレスポンスで簡易ダッシュボードを実装。
 
 **解決策**
 
-FastAPIでCORSMiddlewareを追加。
+FastAPIでCORSMiddlewareを追加して特定のドメインからの通信を許可
 
 ```python
 from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://aiworklab.jp"],
+    allow_origins=["https://example.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -212,7 +212,7 @@ FastAPIのHTMLレスポンスで簡易ダッシュボードを実装。
 
 **解決策**
 
-FastAPIでCORSMiddlewareを追加して特定のドメインからの通信を許可
+FastAPIでCORSMiddlewareを追加して特定のURLからの通信を許可
 
 ```python
 from fastapi.middleware.cors import CORSMiddleware
@@ -228,8 +228,10 @@ app.add_middleware(
 
 CloudFrontで以下を設定。
 
-- Managed-AllViewer
-- Managed-CORS-With-Preflight
+(ブラウザ情報を全部ALB/FastAPIへ中継する設定)
+- Managed-AllViewer 
+(CORS通信とOPTIONS確認通信に対応する設定)
+- Managed-CORS-With-Preflight 
 
 ---
 

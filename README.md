@@ -318,96 +318,7 @@ aws cloudformation update-stack \
   --capabilities CAPABILITY_NAMED_IAM
 ```
 
----
-
-### ⑦ Docker / 開発環境
-
-**問題**
-
-- docker daemon not running
-- docker login エラー
-
-**原因**
-
-- Docker未起動
-- コマンドパイプ構文ミス
-
-**解決策**
-
-```bash
-aws ecr get-login-password | docker login ...
-```
-
-- Docker Desktop起動
-
----
-
-### ⑧ Git / コマンド系
-
-**問題**
-
-- `git add`できない（not a git repository）
-- `git clone`できない（Permission denied）
-- gitコマンドがない
-
-**原因**
-
-- git init未実施
-- 権限のないディレクトリ
-- Git未インストール
-
-**解決策**
-
-- `git init`
-- GitHubへ直接アップロード
-- `/tmp`など権限ある場所でclone
-
-```bash
-sudo yum install -y git
-```
-
----
-
-### ⑨ パス / CLI操作ミス
-
-**問題**
-
-- cdできない
-
-**原因**
-
-- パス誤り（全角文字・スペース含む）
-
-**解決策**
-
-- `""`で囲む
-- エクスプローラーからコピー
-
----
-
-### ⑩ Python / pip / ライブラリ
-
-**問題**
-
-- pipがない
-- pymysql等のモジュールエラー
-
-**原因**
-
-- pip未導入
-- ライブラリ不足
-- DBドライバ不一致
-
-**解決策**
-
-```bash
-sudo yum install -y python3-pip
-pip install pymysql
-```
-
----
-
-### ⑪ Alembic / マイグレーション
+### ⑦ Alembic / マイグレーション
 
 **問題**
 
@@ -445,7 +356,7 @@ DELETE FROM alembic_version;
 
 ---
 
-### ⑫ RDS / DB接続
+### ⑧ RDS / DB接続
 
 **問題**
 
@@ -476,7 +387,7 @@ alembic upgrade head
 
 ---
 
-### ⑬ SSM接続
+### ⑨ SSM接続
 
 **問題**
 
@@ -490,51 +401,6 @@ alembic upgrade head
 
 - `AmazonSSMManagedInstanceCore` を付与
 - EC2再起動
-
----
-
-### ⑭ ネットワーク設計の誤解
-
-**問題**
-
-- ECS → ブログ通信だと誤認
-- SGでHTTPS許可必要？と混乱
-
-**原因**
-
-- 通信経路理解不足
-- Inbound / Outbound理解不足
-
-**解決策**
-
-正しい通信経路：
-
-```text
-ブラウザ → ALB → ECS
-```
-
-Security GroupはInbound制御が重要と理解。
-
----
-
-### ⑮ AWSコンポーネント理解不足
-
-**問題**
-
-- TargetGroupとListenerを混同
-- buildの意味が曖昧
-
-**原因**
-
-- 各コンポーネントの役割理解不足
-
-**解決策**
-
-- Listener = リクエスト受付・振り分け
-- TargetGroup = 転送先グループ
-- build = 実行環境込みでアプリをパッケージ化
-
----
 
 
 

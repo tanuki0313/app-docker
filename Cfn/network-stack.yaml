@@ -1,0 +1,293 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Network Stack (VPC, Subnet, IGW, RouteTable, VPC Endpoint)
+
+Resources:
+
+  # =========================
+  # VPC作成
+  # =========================
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: my-vpc
+
+  # =========================
+  # Internet Gateway
+  # =========================
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # =========================
+  # Public Subnet（ALB用）
+  # =========================
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: public-subnet-1
+        - Key: Role
+          Value: alb
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.6.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: public-subnet-2
+        - Key: Role
+          Value: alb
+
+  # =========================
+  # Private Subnet（ECS用）
+  # =========================
+  PrivateSubnetECS1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: private-subnet-ecs-1
+        - Key: Env
+          Value: dev
+        - Key: Role
+          Value: ecs
+
+  PrivateSubnetECS2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: private-subnet-ecs-2
+        - Key: Env
+          Value: dev
+        - Key: Role
+          Value: ecs
+
+  # =========================
+  # Private Subnet（RDS用）
+  # =========================
+  PrivateSubnetRDS1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: private-subnet-rds-1
+        - Key: Env
+          Value: dev
+        - Key: Role
+          Value: rds
+        - Key: Project
+          Value: memo-app
+
+  PrivateSubnetRDS2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.5.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: private-subnet-rds-2
+        - Key: Env
+          Value: dev
+        - Key: Role
+          Value: rds
+        - Key: Project
+          Value: memo-app
+
+  # =========================
+  # Route Table（Public用）
+  # =========================
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # =========================
+  # Private Route Table
+  # =========================
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+
+  PrivateSubnetECS1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetECS1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetECS2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetECS2
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetRDS1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetRDS1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetRDS2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetRDS2
+      RouteTableId: !Ref PrivateRouteTable
+
+  # =========================
+  # VPC Endpoint用SG
+  # ECSサブネットからのみVPCエンドポイントへのアクセスを許可
+  # =========================
+  EndpointSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Endpoint SG
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.2.0/24  # ECSサブネット1のみ
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.4.0/24  # ECSサブネット2のみ
+
+  # =========================
+  # VPC Endpoint
+  # =========================
+  EcrApiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref MyVPC
+      ServiceName: com.amazonaws.ap-northeast-1.ecr.api
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnetECS1
+        - !Ref PrivateSubnetECS2
+      SecurityGroupIds:
+        - !Ref EndpointSG
+
+  EcrDkrEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref MyVPC
+      ServiceName: com.amazonaws.ap-northeast-1.ecr.dkr
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnetECS1
+        - !Ref PrivateSubnetECS2
+      SecurityGroupIds:
+        - !Ref EndpointSG
+
+  LogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref MyVPC
+      ServiceName: com.amazonaws.ap-northeast-1.logs
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnetECS1
+        - !Ref PrivateSubnetECS2
+      SecurityGroupIds:
+        - !Ref EndpointSG
+
+  S3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref MyVPC
+      ServiceName: com.amazonaws.ap-northeast-1.s3
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+
+# =========================
+# Outputs
+# =========================
+Outputs:
+
+  VpcId:
+    Value: !Ref MyVPC
+    Export:
+      Name: MyVPC
+
+  PublicSubnet1Id:
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: PublicSubnet1
+
+  PublicSubnet2Id:
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: PublicSubnet2
+
+  PrivateSubnetECS1Id:
+    Value: !Ref PrivateSubnetECS1
+    Export:
+      Name: PrivateSubnetECS1
+
+  PrivateSubnetECS2Id:
+    Value: !Ref PrivateSubnetECS2
+    Export:
+      Name: PrivateSubnetECS2
+
+  PrivateSubnetRDS1Id:
+    Value: !Ref PrivateSubnetRDS1
+    Export:
+      Name: PrivateSubnetRDS1
+
+  PrivateSubnetRDS2Id:
+    Value: !Ref PrivateSubnetRDS2
+    Export:
+      Name: PrivateSubnetRDS2

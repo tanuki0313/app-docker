@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DB Stack (RDS + Secrets Manager)
+
+Resources:
+
+  # =========================
+  # Secrets Manager（DB認証情報）
+  # =========================
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: my-rds-secret
+      Description: RDS credentials
+      GenerateSecretString:
+        SecretStringTemplate: '{"username":"admin"}'
+        GenerateStringKey: password
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+
+  # =========================
+  # DB用セキュリティグループ
+  # =========================
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow access from ECS
+      VpcId: !ImportValue MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !ImportValue ECSSG
+
+  # =========================
+  # DB Subnet Group
+  # =========================
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS
+      SubnetIds:
+        - !ImportValue PrivateSubnetRDS1
+        - !ImportValue PrivateSubnetRDS2
+
+  # =========================
+  # RDS
+  # =========================
+  MyRDS:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: my-rds
+      Engine: mysql
+      EngineVersion: 8.0
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+
+      # 👇 Secrets Manager参照
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+
+      MultiAZ: true
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 1
+
+# =========================
+# Outputs
+# =========================
+Outputs:
+
+  RdsEndpoint:
+    Value: !GetAtt MyRDS.Endpoint.Address
+    Export:
+      Name: RdsEndpoint
+
+  DBSecretArn:
+    Value: !Ref DBSecret
+    Export:
+      Name: DBSecretArn

@@ -1,0 +1,217 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: App Stack (ALB, ECS, ECR, IAM, Logs, CloudFront)
+
+Resources:
+
+# =========================
+# ECR
+# =========================
+  MyECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: my-app-repo
+
+# =========================
+# CloudWatch Logs
+# =========================
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/my-app
+      RetentionInDays: 7
+
+# =========================
+# Security Groups
+# =========================
+  # ALBはCloudFrontのIPのみ許可（0.0.0.0/0は不可）
+  ALBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB SG
+      VpcId: !ImportValue MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          # CloudFrontのマネージドプレフィックスリスト（東京リージョン）
+          SourcePrefixListId: pl-58a04531
+
+  # ECSはALBからのみ8000番ポートへのアクセスを許可
+  ECSSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ECS SG
+      VpcId: !ImportValue MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          SourceSecurityGroupId: !Ref ALBSG
+
+# =========================
+# ALB
+# =========================
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - !ImportValue PublicSubnet1
+        - !ImportValue PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSG
+
+# ALBがどこに通信してよいかの指示
+# =========================
+# Target Group
+# =========================
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 8000
+      Protocol: HTTP
+      VpcId: !ImportValue MyVPC
+      TargetType: ip
+      HealthCheckPath: /
+
+# ALBから来たリクエストをどう処理するか決める
+# =========================
+# Listener
+# =========================
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+# ECSを動かす箱
+# =========================
+# ECS Cluster
+# =========================
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+
+# =========================
+# IAM Role（ECSタスク実行）
+# =========================
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+# どんなコンテナをどう動かすか定義
+# =========================
+# Task Definition
+# =========================
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: my-task
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref TaskExecutionRole
+      ContainerDefinitions:
+        - Name: app
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.ap-northeast-1.amazonaws.com/my-app-repo:latest"
+          PortMappings:
+            - ContainerPort: 8000
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/my-app
+              awslogs-region: ap-northeast-1
+              awslogs-stream-prefix: ecs
+
+# =========================
+# ECS Service
+# =========================
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - Listener
+    Properties:
+      Cluster: !Ref ECSCluster
+      LaunchType: FARGATE
+      DesiredCount: 1
+      TaskDefinition: !Ref TaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !ImportValue PrivateSubnetECS1
+            - !ImportValue PrivateSubnetECS2
+          SecurityGroups:
+            - !Ref ECSSG
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerName: app
+          ContainerPort: 8000
+
+# =========================
+# CloudFront
+# CloudFrontがHTTPSを担当し、ALBへはHTTPで通信する
+# =========================
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Origins:
+          - Id: ALBOrigin
+            # ALBのDNS名をオリジンとして設定
+            DomainName: !GetAtt ALB.DNSName
+            CustomOriginConfig:
+              HTTPPort: 80
+              # ALBへはHTTPで通信（CloudFrontがHTTPS化を担当）
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          TargetOriginId: ALBOrigin
+          # HTTPアクセスをHTTPSにリダイレクト
+          ViewerProtocolPolicy: redirect-to-https
+          # APIなのでキャッシュ無効（毎回ALBにリクエストを送る）
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          # リクエストのヘッダーをそのままALBに転送（CORS対応）
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+          # CORSのプリフライトリクエストに対応するレスポンスヘッダー
+          ResponseHeadersPolicyId: 5cc3b908-e619-4b99-88e5-2cf7f45965bd
+          # CloudFrontで許可するHTTPメソッド（OPTIONSはCORSプリフライト対応）
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - PUT
+            - POST
+            - PATCH
+            - DELETE
+
+# =========================
+# Outputs
+# =========================
+Outputs:
+
+  ALBURL:
+    Value: !GetAtt ALB.DNSName
+
+  # CloudFrontのURLを出力（このURLをWordPressのスクリプトに設定する）
+  CloudFrontURL:
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: CloudFrontURL
+      
+  # DB SGで参照    
+  ECSSecurityGroupId:
+    Value: !Ref ECSSG
+    Export:
+      Name: ECSSG

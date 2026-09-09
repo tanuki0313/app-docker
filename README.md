@@ -27,7 +27,7 @@ Amazon RDS(MySQL)へ保存し、管理画面で以下の情報を確認できま
 
 ## 構成 / アーキテクチャ
 
-![構成図](images/Docker_cicd.png)
+![構成図](images/Docker_CICD.png)
 
 ---
 
